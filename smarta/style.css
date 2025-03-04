@@ -1,0 +1,185 @@
+body{
+	font-family:Arial,Helvetica,sans-serif;
+    background: #262730;
+    color: white;
+}
+
+h2{
+    margin: 20px auto 15px auto;
+    width: 313px;
+    height: 60px;
+    background: url("smarta-logo.png") no-repeat center;
+    background-size: 80%;
+    text-indent: -9999px;
+    }
+
+#lastupdated
+{
+    text-align: center;
+    font-size: 80%;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    color: #686a79;
+}
+
+#tubestatus-wrapper
+{
+    text-align: center;
+}
+
+#tubestatus
+{
+    background: #2f2f3f;
+    padding: 10px;
+    display: inline-block;
+    border-radius: 10px;
+}
+
+#tubestatus table{
+	table-layout: fixed;
+    width: 1100px;
+    border-collapse: collapse;
+}
+
+#tubestatus table td{
+    padding: 4px 10px 3px 10px;
+}
+
+
+.tubeline{
+	font-weight:bold;
+	width: 200px;
+}
+
+.bustable{
+    display: inline-block;
+	clear: both;
+    background: #2f2f3f;
+    border-radius: 10px;
+    margin: 10px 6px 0px 6px;
+    padding: 0 15px 10px 15px;
+}
+
+#bustimes-wrapper
+{
+    text-align: center;
+}
+
+#bustimes{
+    display: inline-block;
+}
+
+#bustimes table{
+	table-layout: fixed;
+    width: 475px;
+    margin: 5px;
+
+}
+
+#bustimes h4
+{
+    font-size: 93%;
+}
+
+#bustimes table th{
+    font-size: 90%;
+}
+
+#bustimes table td{
+    font-size: 80%;
+}
+
+.busnumber{
+	font-weight:bold;
+	width: 75px;
+        text-align: center;
+
+}
+
+.towards{
+	width: 325px;
+        text-align: center;
+
+}
+
+.timeuntil{
+	width: 100px;
+    text-align: center;
+}
+
+.status
+{
+	font-weight:bold;
+    font-size: 93%;
+}
+
+.desc{
+    font-size: 80%;
+    padding-left: 18px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+
+}
+
+.bakerloo{
+    color:#fff;
+    background:#ae6118
+}
+.central{
+    color:#fff;
+    background:#e41f1f
+}
+.circle{
+    color:#113b92;
+    background:#f8d42d
+}
+.district{
+    color:#fff;
+    background:#00a575
+}
+.hammersmith{
+    color:#113b92;
+    background:#e899a8
+}
+.jubilee{
+    color:#fff;
+    background:#8f989e
+}
+.metropolitan{
+    color:#fff;
+    background:#893267
+}
+.northern{
+    color:#fff;
+    background:#000
+}
+.piccadilly{
+    color:#fff;
+    background:#0450a1
+}
+.elizabeth{
+    color:#fff;
+    background:#6950a1
+}
+.victoria{
+    color:#fff;
+    background:#009fe0
+}
+.waterloo{
+    color:#113b92;
+    background:#70c3ce
+}
+.dlr{
+    color:#fff;
+    background:#00bbb4
+}
+.overground{
+    color:#fff;
+    background:#f86c00
+}
+.rail{
+    color:#fff;
+    background:#0019a8
+}
