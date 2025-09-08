@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Glide Scout — Elevation & Average Gradient for Paragliding / Hang Gliding</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous"/>
+<style>
+  :root {
+    --bg:#0f1216; --panel:#151a21; --ink:#e9eef5; --muted:#9db0c1;
+    --grid:#273244; --ter:#69b7ff; --avg:#ffd166; --danger:#ffadad;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:1100px;margin:18px auto;padding:0 16px}
+  h1{font-size:20px;margin:0 0 10px}
+  .card{background:var(--panel);border:1px solid #1e2631;border-radius:14px;padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  label{display:block;font-weight:600;color:var(--muted);margin-bottom:4px}
+  input[type="number"]{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #263041;background:#0e131a;color:var(--ink)}
+  .actions{display:flex;gap:10px;align-items:end}
+  button{padding:10px 14px;border-radius:10px;border:1px solid #2a2f3a;background:#1a2230;color:var(--ink);cursor:pointer;font-weight:700}
+  button.primary{background:linear-gradient(180deg,#223047,#1a2435);border-color:#2f3d57}
+  button:disabled{opacity:.6;cursor:not-allowed}
+  #map{height:320px;border-radius:12px;overflow:hidden;border:1px solid #1f2835}
+  #chart{height:360px;width:100%;border-radius:12px;overflow:hidden;border:1px solid #1f2835;background:#0c1117}
+  .meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}
+  .pill{background:#101720;border:1px solid #1c2634;border-radius:10px;padding:10px 12px}
+  .pill b{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bottom:4px}
+  .pill span{font-weight:800;font-size:16px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0 0;color:var(--muted);font-size:12px}
+  .key{display:inline-flex;align-items:center;gap:8px}
+  .swatch{width:14px;height:4px;border-radius:2px}
+  .s-terrain{background:var(--ter)} .s-avg{background:var(--avg)}
+  .foot{margin-top:8px;color:var(--muted);font-size:12px}
+  .hint{margin:6px 0 12px;color:var(--muted)}
+  .warn{color:var(--danger)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Glide Scout — Elevation & Average Gradient for Paragliding / Hang Gliding</h1>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="hint">🖱️ Click to select first point, <b>right click</b> for second point. (Tip: Shift+Click also sets the end point.) — Live analysis is ON.</div>
+    <div class="row">
+      <div>
+        <label>Start point (lat, lon)</label>
+        <div class="grid-3" style="grid-template-columns:1fr 1fr auto;">
+          <input id="lat1" type="number" step="any" placeholder="e.g. 51.0501"/>
+          <input id="lon1" type="number" step="any" placeholder="-115.085"/>
+          <button id="useBrowser" title="Use browser location for start">Use my location</button>
+        </div>
+      </div>
+      <div>
+        <label>End point (lat, lon)</label>
+        <div class="grid-3" style="grid-template-columns:1fr 1fr auto;">
+          <input id="lat2" type="number" step="any" placeholder="e.g. 51.23"/>
+          <input id="lon2" type="number" step="any" placeholder="-115.45"/>
+          <button id="swap" title="Swap start/end">Swap</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <div>
+        <label>Samples along path</label>
+        <input id="samples" type="number" min="10" max="2000" step="10" value="300"/>
+      </div>
+      <div class="actions">
+        <button id="analyze" class="primary" title="Run now (live analyze also runs automatically)">Analyze</button>
+        <button id="example">Load example (Mount Swansea)</button>
+      </div>
+    </div>
+    <div class="foot">Data: map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a> contributors. Elevation via <a href="https://api.open-elevation.com" target="_blank" rel="noreferrer">Open-Elevation</a> (public, rate-limited).</div>
+  </div>
+
+  <div class="row" style="grid-template-columns:1.1fr .9fr;">
+    <div class="card">
+      <div id="chart"></div>
+      <div class="legend">
+        <span class="key"><span class="swatch s-terrain"></span>Terrain</span>
+        <span class="key"><span class="swatch s-avg"></span>Average gradient line (start→end)</span>
+      </div>
+      <div class="meta" id="stats" style="margin-top:8px"></div>
+      <div id="note" class="foot"></div>
+    </div>
+    <div class="card"><div id="map"></div></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+<script>
+(() => {
+  // --- Utilities ---
+  const R=6371000, toRad=d=>d*Math.PI/180;
+  function haversine(aLat,aLon,bLat,bLon){const φ1=toRad(aLat),φ2=toRad(bLat),dφ=toRad(bLat-aLat),dλ=toRad(bLon-aLon);const A=Math.sin(dφ/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2;return 2*R*Math.asin(Math.sqrt(A));}
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const formatDist=m=>m>=1000?(m/1000).toFixed(2)+" km":Math.round(m)+" m";
+  function gradientRatio(s){ if(!isFinite(s)||s===0) return s===0?"flat":"vertical"; const sign=s<0?'-':''; return `${sign}1:${Math.abs(1/s).toFixed(2)}`; }
+  const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+  const validCoord=(lat,lon)=>isFinite(lat)&&Math.abs(lat)<=90&&isFinite(lon)&&Math.abs(lon)<=180;
+
+  // --- DOM ---
+  const lat1El=document.getElementById('lat1'), lon1El=document.getElementById('lon1');
+  const lat2El=document.getElementById('lat2'), lon2El=document.getElementById('lon2');
+  const samplesEl=document.getElementById('samples');
+  const analyzeBtn=document.getElementById('analyze'), swapBtn=document.getElementById('swap'), useBrowserBtn=document.getElementById('useBrowser'), exampleBtn=document.getElementById('example');
+  const chartEl=document.getElementById('chart'), statsEl=document.getElementById('stats'), noteEl=document.getElementById('note');
+
+  // --- Map ---
+  const map=L.map('map',{zoomControl:true,scrollWheelZoom:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'&copy; OpenStreetMap'}).addTo(map);
+  let startMarker,endMarker,pathLine;
+  const getStart=()=>startMarker?startMarker.getLatLng():null;
+  const getEnd=()=>endMarker?endMarker.getLatLng():null;
+
+  function updateMapMarkers(a,b){
+    if(pathLine){map.removeLayer(pathLine);pathLine=null;}
+    if(a){
+      if(!startMarker){
+        startMarker=L.marker([a.lat,a.lon],{title:'Start',draggable:true}).addTo(map);
+        startMarker.on('dragend',e=>{const p=e.target.getLatLng();lat1El.value=p.lat.toFixed(6);lon1El.value=p.lng.toFixed(6);updateMapMarkers({lat:p.lat,lon:p.lng}, b || (getEnd()&&{lat:getEnd().lat,lon:getEnd().lng}));scheduleRun();});
+      }else startMarker.setLatLng([a.lat,a.lon]);
+    }
+    if(b){
+      if(!endMarker){
+        endMarker=L.marker([b.lat,b.lon],{title:'End',draggable:true}).addTo(map);
+        endMarker.on('dragend',e=>{const p=e.target.getLatLng();lat2El.value=p.lat.toFixed(6);lon2El.value=p.lng.toFixed(6);updateMapMarkers(a || (getStart()&&{lat:getStart().lat,lon:getStart().lng}), {lat:p.lat,lon:p.lng});scheduleRun();});
+      }else endMarker.setLatLng([b.lat,b.lon]);
+    }
+    if(a&&b){ pathLine=L.polyline([[a.lat,a.lon],[b.lat,b.lon]],{color:'#69b7ff',weight:3,opacity:.8}).addTo(map); map.fitBounds(pathLine.getBounds(),{padding:[30,30]}); }
+    else if(a){ map.setView([a.lat,a.lon],13); } else if(b){ map.setView([b.lat,b.lon],13); }
+  }
+
+  // Map interactions
+  map.on('click',e=>{const pos={lat:e.latlng.lat,lon:e.latlng.lng};lat1El.value=pos.lat.toFixed(6);lon1El.value=pos.lon.toFixed(6);updateMapMarkers(pos, getEnd()&&{lat:getEnd().lat,lon:getEnd().lng});scheduleRun();});
+  map.on('contextmenu',e=>{const pos={lat:e.latlng.lat,lon:e.latlng.lng};lat2El.value=pos.lat.toFixed(6);lon2El.value=pos.lon.toFixed(6);updateMapMarkers(getStart()&&{lat:getStart().lat,lon:getStart().lng}, pos);scheduleRun();});
+  map.on('click',e=>{if(e.originalEvent.shiftKey){const pos={lat:e.latlng.lat,lon:e.latlng.lng};lat2El.value=pos.lat.toFixed(6);lon2El.value=pos.lon.toFixed(6);updateMapMarkers(getStart()&&{lat:getStart().lat,lon:getStart().lng}, pos);scheduleRun();}});
+  map.setView([51.05,-114.07],9);
+
+  // --- Elevation sampling ---
+  async function fetchProfile(a,b,n){
+    const locs=[]; for(let i=0;i<n;i++){ const t=i/(n-1); locs.push({latitude:lerp(a.lat,b.lat,t),longitude:lerp(a.lon,b.lon,t)}); }
+    const resp=await fetch("https://api.open-elevation.com/api/v1/lookup",{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({locations:locs})});
+    if(!resp.ok) throw new Error(`Elevation API error: ${resp.status}`);
+    const data=await resp.json();
+    const elevations=data.results.map(r=>r.elevation);
+    const dists=[0]; for(let i=1;i<locs.length;i++){ dists.push(dists[i-1]+haversine(locs[i-1].latitude,locs[i-1].longitude,locs[i].latitude,locs[i].longitude)); }
+    return {locs,elevations,dists};
+  }
+
+  // --- Analysis (average only) ---
+  function analyzeProfile(elevations,dists){
+    const D=dists[dists.length-1];
+    const e0=elevations[0], eN=elevations[elevations.length-1];
+    const avgSlope=(eN-e0)/D; // m per m (negative = descent)
+    return { totalDist:D, e0, eN, avgSlope };
+  }
+
+  // --- Chart ---
+  function drawChart(dists,elevations,A){
+    chartEl.innerHTML='';
+    const W=chartEl.clientWidth||800, H=chartEl.clientHeight||360;
+    const pad={l:60,r:20,t:18,b:36}, w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+    const xMax=dists[dists.length-1];
+    const avgStart=A.e0, avgEnd=A.e0 + A.avgSlope*xMax;
+
+    let yMin=Math.min(...elevations,avgStart,avgEnd);
+    let yMax=Math.max(...elevations,avgStart,avgEnd);
+    const yPad=Math.max(10,(yMax-yMin)*.08); yMin-=yPad; yMax+=yPad;
+
+    const x=d=>pad.l+(d/xMax)*w;
+    const y=e=>pad.t+(1-((e-yMin)/(yMax-yMin)))*h;
+
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width',W); svg.setAttribute('height',H); svg.style.display='block'; chartEl.appendChild(svg);
+
+    // Grid
+    const xTicks=6,yTicks=6;
+    for(let i=0;i<=xTicks;i++){ const dx=xMax*i/xTicks;
+      const ln=document.createElementNS(svg.namespaceURI,'line'); ln.setAttribute('x1',x(dx)); ln.setAttribute('x2',x(dx)); ln.setAttribute('y1',y(yMin)); ln.setAttribute('y2',y(yMax)); ln.setAttribute('stroke','var(--grid)'); ln.setAttribute('stroke-width','1'); ln.setAttribute('opacity','.7'); svg.appendChild(ln);
+      const lbl=document.createElementNS(svg.namespaceURI,'text'); lbl.setAttribute('x',x(dx)); lbl.setAttribute('y',H-10); lbl.setAttribute('fill','var(--muted)'); lbl.setAttribute('font-size','11'); lbl.setAttribute('text-anchor','middle'); lbl.textContent=dx>=1000?(dx/1000).toFixed(1)+' km':Math.round(dx)+' m'; svg.appendChild(lbl);
+    }
+    for(let i=0;i<=yTicks;i++){ const ev=yMin+(yMax-yMin)*i/yTicks;
+      const ln=document.createElementNS(svg.namespaceURI,'line'); ln.setAttribute('x1',x(0)); ln.setAttribute('x2',x(xMax)); ln.setAttribute('y1',y(ev)); ln.setAttribute('y2',y(ev)); ln.setAttribute('stroke','var(--grid)'); ln.setAttribute('stroke-width','1'); ln.setAttribute('opacity','.7'); svg.appendChild(ln);
+      const lbl=document.createElementNS(svg.namespaceURI,'text'); lbl.setAttribute('x',8); lbl.setAttribute('y',y(ev)+4); lbl.setAttribute('fill','var(--muted)'); lbl.setAttribute('font-size','11'); lbl.textContent=Math.round(ev)+' m'; svg.appendChild(lbl);
+    }
+
+    // Terrain
+    const d=[]; for(let i=0;i<dists.length;i++){ d.push((i===0?'M':'L')+x(dists[i])+' '+y(elevations[i])); }
+    const terrain=document.createElementNS(svg.namespaceURI,'path');
+    terrain.setAttribute('d',d.join(' ')); terrain.setAttribute('fill','none'); terrain.setAttribute('stroke','var(--ter)'); terrain.setAttribute('stroke-width','2'); svg.appendChild(terrain);
+
+    // Average line
+    const avg=document.createElementNS(svg.namespaceURI,'line');
+    avg.setAttribute('x1',x(0)); avg.setAttribute('y1',y(avgStart)); avg.setAttribute('x2',x(xMax)); avg.setAttribute('y2',y(avgEnd));
+    avg.setAttribute('stroke','var(--avg)'); avg.setAttribute('stroke-width','2'); avg.setAttribute('stroke-dasharray','6 6'); svg.appendChild(avg);
+
+    // Labels
+    const label=(text,lx,ly,color)=>{const t=document.createElementNS(svg.namespaceURI,'text');t.setAttribute('x',lx);t.setAttribute('y',ly);t.setAttribute('fill',color);t.setAttribute('font-size','12');t.setAttribute('font-weight','700');t.textContent=text;svg.appendChild(t);};
+    label('Elevation vs Distance',60,14,'#9db0c1');
+    label(`Avg: ${gradientRatio(A.avgSlope)}`, 240, 14, '#9db0c1');
+  }
+
+  function updateStats(profile,A){
+    const gain=A.eN-A.e0;
+    statsEl.innerHTML = `
+      <div class="pill"><b>Total distance</b><span>${formatDist(A.totalDist)}</span></div>
+      <div class="pill"><b>Start / End elev</b><span>${Math.round(A.e0)} m → ${Math.round(A.eN)} m (${gain>=0?'+':''}${Math.round(gain)} m)</span></div>
+      <div class="pill"><b>Average gradient</b><span>${gradientRatio(A.avgSlope)} (${(A.avgSlope*100).toFixed(2)}%)</span></div>
+      <div class="pill"><b>Samples</b><span>${profile.locs.length}</span></div>
+    `;
+    noteEl.innerHTML = `
+      The yellow line is the straight start→end average altitude change. For site checks, still verify with local knowledge, wind, and higher-res DEMs.
+    `;
+  }
+
+  // --- Debounced run ---
+  let pending=false, debounceT=null;
+  function scheduleRun(delay=600){ clearTimeout(debounceT); debounceT=setTimeout(()=>{ if(!pending) run(); }, delay); }
+
+  async function run(){
+    const a={lat:parseFloat(lat1El.value),lon:parseFloat(lon1El.value)};
+    const b={lat:parseFloat(lat2El.value),lon:parseFloat(lon2El.value)};
+    if(!validCoord(a.lat,a.lon)||!validCoord(b.lat,b.lon)){
+      noteEl.textContent='Pick both points to analyze.'; chartEl.innerHTML=''; statsEl.innerHTML=''; return;
+    }
+    const n=clamp(parseInt(samplesEl.value||'300',10),10,2000);
+    pending=true; analyzeBtn.disabled=true; noteEl.textContent='Sampling elevation profile…';
+    try{
+      updateMapMarkers(a,b);
+      const profile=await fetchProfile(a,b,n);
+      const A=analyzeProfile(profile.elevations,profile.dists);
+      drawChart(profile.dists,profile.elevations,A);
+      updateStats(profile,A);
+    }catch(e){
+      chartEl.innerHTML=''; statsEl.innerHTML=''; noteEl.innerHTML=`<span class="warn">Error:</span> ${e.message}`;
+    }finally{ analyzeBtn.disabled=false; pending=false; }
+  }
+
+  // --- UI bindings ---
+  analyzeBtn.addEventListener('click',run);
+  samplesEl.addEventListener('change',()=>scheduleRun(200));
+  samplesEl.addEventListener('input',()=>scheduleRun(400));
+  [lat1El,lon1El,lat2El,lon2El].forEach(el=>{ el.addEventListener('change',()=>scheduleRun(200)); el.addEventListener('input',()=>scheduleRun(400)); });
+  swapBtn.addEventListener('click',()=>{ const a=lat1El.value,b=lat2El.value; lat1El.value=b; lat2El.value=a; const c=lon1El.value,d=lon2El.value; lon1El.value=d; lon2El.value=c;
+    if(getStart()||getEnd()){ updateMapMarkers(
+      validCoord(parseFloat(lat1El.value),parseFloat(lon1El.value))?{lat:parseFloat(lat1El.value),lon:parseFloat(lon1El.value)}:null,
+      validCoord(parseFloat(lat2El.value),parseFloat(lon2El.value))?{lat:parseFloat(lat2El.value),lon:parseFloat(lon2El.value)}:null
+    ); } scheduleRun(200);
+  });
+  useBrowserBtn.addEventListener('click',()=>{ if(!navigator.geolocation) return alert('Geolocation not supported.');
+    navigator.geolocation.getCurrentPosition(pos=>{ lat1El.value=pos.coords.latitude.toFixed(6); lon1El.value=pos.coords.longitude.toFixed(6);
+      updateMapMarkers({lat:parseFloat(lat1El.value),lon:parseFloat(lon1El.value)}, getEnd()&&{lat:getEnd().lat,lon:getEnd().lng}); scheduleRun(200);
+    },err=>alert('Geolocation failed: '+err.message),{enableHighAccuracy:true,timeout:10000});
+  });
+
+  // Mount Swansea example
+  exampleBtn.addEventListener('click',()=>{
+    lat1El.value=50.507264793263374; lon1El.value=-115.95338945910872;
+    lat2El.value=50.49333052075339;  lon2El.value=-115.97759944229863;
+    samplesEl.value=400;
+    updateMapMarkers(
+      {lat:parseFloat(lat1El.value),lon:parseFloat(lon1El.value)},
+      {lat:parseFloat(lat2El.value),lon:parseFloat(lon2El.value)}
+    );
+    scheduleRun(100);
+  });
+})();
+</script>
+</body>
+</html>
