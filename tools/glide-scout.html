@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Glide Scout — Elevation & Average Gradient for Hang Gliding / Paragliding</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Glide Scout — Elevation & Average Gradient (Live)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous"/>
 <style>
   :root {
@@ -17,9 +17,9 @@
   .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
   label{display:block;font-weight:600;color:var(--muted);margin-bottom:4px}
-  input[type="number"]{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #263041;background:#0e131a;color:var(--ink)}
+  input[type="number"]{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #263041;background:#0e131a;color:var(--ink)}
   .actions{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
-  button{padding:10px 14px;border-radius:10px;border:1px solid #2a2f3a;background:#1a2230;color:var(--ink);cursor:pointer;font-weight:700}
+  button{padding:12px 14px;border-radius:10px;border:1px solid #2a2f3a;background:#1a2230;color:var(--ink);cursor:pointer;font-weight:700}
   button.primary{background:linear-gradient(180deg,#223047,#1a2435);border-color:#2f3d57}
   button:disabled{opacity:.6;cursor:not-allowed}
   #map{height:320px;border-radius:12px;overflow:hidden;border:1px solid #1f2835}
@@ -35,6 +35,25 @@
   .foot{margin-top:8px;color:var(--muted);font-size:12px}
   .hint{margin:6px 0 12px;color:var(--muted)}
   .warn{color:var(--danger)}
+
+  /* ---------- Mobile responsiveness ---------- */
+  @media (max-width: 900px) {
+    .row { grid-template-columns: 1fr; } /* stack all 2-col rows */
+    /* Main chart/map row: ensure chart above map on mobile */
+    .main-split > .chart-card { order: 1; }
+    .main-split > .map-card   { order: 2; }
+    /* If you prefer MAP first on mobile, swap these order numbers. */
+
+    #map { height: 300px; }
+    #chart { height: 300px; }
+    .meta { grid-template-columns: 1fr 1fr; }
+    .wrap { padding-bottom: env(safe-area-inset-bottom); }
+  }
+  @media (max-width: 520px) {
+    .grid-3 { grid-template-columns: 1fr; } /* inputs stack */
+    .meta { grid-template-columns: 1fr; }
+    button, input[type="number"] { padding: 14px 16px; }
+  }
 </style>
 </head>
 <body>
@@ -42,7 +61,7 @@
   <h1>Glide Scout — Elevation & Average Gradient for hang gliding / paragliding</h1>
 
   <div class="card" style="margin-bottom:14px">
-    <div class="hint">Click to select first point, <b>right click</b> for second point. (Tip: Shift+Click also sets the end point.) — Live analysis is ON. The URL updates so you can share the link.</div>
+    <div class="hint">🖱️ Click to select first point, <b>right click</b> for second point. (Tip: Shift+Click also sets the end point.) — Live analysis is ON. The URL updates so you can share the link.</div>
     <div class="row">
       <div>
         <label>Start point (lat, lon)</label>
@@ -75,12 +94,14 @@
     </div>
     <div class="foot">
       Basemap toggle (top-right): Satellite (Esri) / OpenStreetMap.<br/>
-      Data: map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a> contributors. Satellite: Tiles © Esri. Elevation via <a href="https://api.open-elevation.com" target="_blank" rel="noreferrer">Open-Elevation</a> (public, rate-limited). Design by <a href="https://maxhunter.me">Max Hunter</a>, 2025
+      Data: map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a> contributors. Satellite: Tiles © Esri. Elevation via <a href="https://api.open-elevation.com" target="_blank" rel="noreferrer">Open-Elevation</a> (public, rate-limited).
+      Design by <a href="https://maxhunter.me">Max Hunter</a>, 2025
     </div>
   </div>
 
-  <div class="row" style="grid-template-columns:1.1fr .9fr;">
-    <div class="card">
+  <!-- Main split: chart + map -->
+  <div class="row main-split" style="grid-template-columns:1.1fr .9fr;">
+    <div class="card chart-card">
       <div id="chart"></div>
       <div class="legend">
         <span class="key"><span class="swatch s-terrain"></span>Terrain</span>
@@ -89,7 +110,7 @@
       <div class="meta" id="stats" style="margin-top:8px"></div>
       <div id="note" class="foot"></div>
     </div>
-    <div class="card"><div id="map"></div></div>
+    <div class="card map-card"><div id="map"></div></div>
   </div>
 </div>
 
@@ -139,6 +160,7 @@
     }
     if(a&&b){ pathLine=L.polyline([[a.lat,a.lon],[b.lat,b.lon]],{color:'#69b7ff',weight:3,opacity:.8}).addTo(map); map.fitBounds(pathLine.getBounds(),{padding:[30,30]}); }
     else if(a){ map.setView([a.lat,a.lon],13); } else if(b){ map.setView([b.lat,b.lon],13); }
+    queueInvalidate(); // ensure correct sizing after DOM/layout changes
   }
 
   // --- URL helpers (shareable link) ---
@@ -165,10 +187,12 @@
     if(haveA||haveB){
       updateMapMarkers(haveA?{lat:aLat,lon:aLon}:null, haveB?{lat:bLat,lon:bLon}:null);
       scheduleRun(100);
+    } else {
+      map.setView([51.05,-114.07],9);
     }
   }
 
-  // Map interactions (clicks update inputs, URL, and run)
+  // Map interactions
   map.on('click',e=>{
     const pos={lat:e.latlng.lat,lon:e.latlng.lng};
     lat1El.value=pos.lat.toFixed(6); lon1El.value=pos.lon.toFixed(6);
@@ -189,7 +213,6 @@
       updateURL(); scheduleRun();
     }
   });
-  map.setView([51.05,-114.07],9);
 
   // --- Elevation sampling ---
   async function fetchProfile(a,b,n){
@@ -319,7 +342,7 @@
     },err=>alert('Geolocation failed: '+err.message),{enableHighAccuracy:true,timeout:10000});
   });
 
-  exampleBtn.addEventListener('click',()=>{
+  document.getElementById('example').addEventListener('click',()=>{
     lat1El.value=50.507264793263374; lon1El.value=-115.95338945910872;
     lat2El.value=50.49333052075339;  lon2El.value=-115.97759944229863;
     samplesEl.value=400;
@@ -330,7 +353,7 @@
     updateURL(); scheduleRun(100);
   });
 
-  clearBtn.addEventListener('click',()=>{
+  document.getElementById('clearAll').addEventListener('click',()=>{
     if(startMarker){ map.removeLayer(startMarker); startMarker=null; }
     if(endMarker){ map.removeLayer(endMarker); endMarker=null; }
     if(pathLine){ map.removeLayer(pathLine); pathLine=null; }
@@ -338,9 +361,18 @@
     chartEl.innerHTML=''; statsEl.innerHTML=''; noteEl.textContent='';
     history.replaceState(null,'',location.pathname); // clear query params
     map.setView([51.05,-114.07],9);
+    queueInvalidate();
   });
 
-  // --- Init from URL (for shared links) ---
+  // --- Handle layout changes / mobile stacking (Leaflet needs invalidateSize) ---
+  let resizeTimer=null;
+  function queueInvalidate(){
+    clearTimeout(resizeTimer);
+    resizeTimer=setTimeout(()=>{ map.invalidateSize(); }, 120);
+  }
+  window.addEventListener('resize', queueInvalidate);
+
+  // Init
   initFromURL();
 })();
 </script>
