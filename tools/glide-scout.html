@@ -6,15 +6,14 @@
 <title>Glide Scout — Elevation & Average Gradient (Live)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous"/>
 <style>
-  :root {
-    --bg:#0f1216; --panel:#151a21; --ink:#e9eef5; --muted:#9db0c1;
-    --grid:#273244; --ter:#69b7ff; --avg:#ffd166; --danger:#ffadad;
-  }
+  :root { --bg:#0f1216; --panel:#151a21; --ink:#e9eef5; --muted:#9db0c1; --grid:#273244; --ter:#69b7ff; --avg:#ffd166; --danger:#ffadad; }
   html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
   .wrap{max-width:1100px;margin:18px auto;padding:0 16px}
   h1{font-size:20px;margin:0 0 10px}
   .card{background:var(--panel);border:1px solid #1e2631;border-radius:14px;padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  /* NEW: use class (not inline) to define the split columns */
+  .main-split{grid-template-columns:1.1fr .9fr;}
   .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
   label{display:block;font-weight:600;color:var(--muted);margin-bottom:4px}
   input[type="number"]{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #263041;background:#0e131a;color:var(--ink)}
@@ -38,21 +37,19 @@
 
   /* ---------- Mobile responsiveness ---------- */
   @media (max-width: 900px) {
-    .row { grid-template-columns: 1fr; } /* stack all 2-col rows */
-    /* Main chart/map row: ensure chart above map on mobile */
-    .main-split > .chart-card { order: 1; }
-    .main-split > .map-card   { order: 2; }
-    /* If you prefer MAP first on mobile, swap these order numbers. */
-
-    #map { height: 300px; }
-    #chart { height: 300px; }
-    .meta { grid-template-columns: 1fr 1fr; }
-    .wrap { padding-bottom: env(safe-area-inset-bottom); }
+    .row{grid-template-columns:1fr;}            /* stack standard rows */
+    .main-split{grid-template-columns:1fr !important;} /* force stack chart/map */
+    .main-split > .chart-card{order:1;}         /* chart above map */
+    .main-split > .map-card{order:2;}
+    #map{height:300px;}
+    #chart{height:300px;}
+    .meta{grid-template-columns:1fr 1fr;}
+    .wrap{padding-bottom:env(safe-area-inset-bottom);}
   }
   @media (max-width: 520px) {
-    .grid-3 { grid-template-columns: 1fr; } /* inputs stack */
-    .meta { grid-template-columns: 1fr; }
-    button, input[type="number"] { padding: 14px 16px; }
+    .grid-3{grid-template-columns:1fr;}
+    .meta{grid-template-columns:1fr;}
+    button, input[type="number"]{padding:14px 16px;}
   }
 </style>
 </head>
